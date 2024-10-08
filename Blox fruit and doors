@@ -1,0 +1,191 @@
+local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
+
+local Window = OrionLib:MakeWindow({Name = "Game Script (2 Game)", HidePremium = false, SaveConfig = true, ConfigFolder = "OrionTest"})
+
+local MainTab = Window:MakeTab({
+	Name = "Blox Fruit",
+	Icon = "nil",
+	PremiumOnly = false
+})
+
+MainTab:AddButton({
+	Name = "Redz Hub",
+	Callback = function()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/REDzHUB/BloxFruits/main/redz9999"))()
+      		print("button pressed")
+  	end    
+})
+
+MainTab:AddButton({
+	Name = "Crescent Hub",
+	Callback = function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Xyzzz1Project/ScriptProject-Anti-Tamper/main/CrescentMoonAntiTamperV2"))()
+      		print("button pressed")
+  	end    
+})
+
+MainTab:AddButton({
+	Name = "Hutao Hub",
+	Callback = function()
+    loadstring(game:HttpGet('https://raw.githubusercontent.com/HutaoHubs/Hutaohubs2.0/refs/heads/main/Bloxfruit2.lua'))()
+      		print("button pressed")
+  	end    
+})
+
+MainTab:AddButton({
+	Name = "God Hub",
+	Callback = function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/kiciahook/kiciahook/refs/heads/main/loader.lua"))()
+      		print("button pressed")
+  	end    
+})
+
+MainTab:AddButton({
+	Name = "Domadicoof",
+	Callback = function()
+    loadstring(game:HttpGet(‘https://raw.githubusercontent.com/Domadicoof/Domadicoof/c9f17c5f7d7149abb2686c566b3576b8e04c0605/Talk%20HubBeta.lua’))()
+      		print("button pressed")
+  	end    
+})
+
+MainTab:AddButton({
+	Name = "Blox Official",
+	Callback = function()
+    loadstring(game:HttpGet(‘https://raw.githubusercontent.com/ScriptBloxOfficial/Script/main/Frost%20Fire’))()
+      		print("button pressed")
+  	end    
+})
+
+MainTab:AddButton({
+	Name = "Mama Hub",
+	Callback = function()
+    loadstring(game:HttpGet(“https://raw.githubusercontent.com/MAMAhub1/Mmahub/main/README.md”))()
+      		print("button pressed")
+  	end    
+})
+
+MainTab:AddButton({
+	Name = "Hoho Hub",
+	Callback = function()
+    loadstring(game:HttpGet(‘https://raw.githubusercontent.com/acsu123/HOHO_H/main/Loading_UI’))()
+      		print("button pressed")
+  	end    
+})
+
+MainTab:AddButton({
+	Name = "HULKUEXE",
+	Callback = function()
+    loadstring(game:HttpGet”https://raw.githubusercontent.com/HULKUexe/Free—Script/main/3GAME”)()
+      		print("button pressed")
+  	end    
+})
+
+MainTab:AddButton({
+	Name = "sharehack",
+	Callback = function()
+    loadstring(game:HttpGet(‘https://raw.githubusercontent.com/SHAREHACK/script/main/fusion1’))()
+      		print("button pressed")
+  	end    
+})
+
+MainTab:AddButton({
+	Name = "Retro Hub",
+	Callback = function()
+    loadstring(game:HttpGet(“https://raw.githubusercontent.com/spectrumok/RetroHub/main/Main.lua”))()
+      		print("button pressed")
+  	end    
+})
+
+MainTab:AddButton({
+	Name = "xDexpression Hub",
+	Callback = function()
+    loadstring(game:HttpGet”https://raw.githubusercontent.com/xDepressionx/Free-Script/main/AllScript.lua”)()
+      		print("button pressed")
+  	end    
+})
+
+MainTab:AddButton({
+	Name = "Strike Hub",
+	Callback = function()
+    loadstring(game:HttpGet(“https://raw.githubusercontent.com/StormSKz12/StirkeHub1/main/Gameincluded”))()
+      		print("button pressed")
+  	end    
+})
+
+MainTab:AddButton({
+	Name = "Reaperking hub",
+	Callback = function()
+    loadstring(game:HttpGet(“https://reaperking.xyz/bloxfruits”, true))()
+      		print("button pressed")
+  	end    
+})
+
+MainTab:AddButton({
+	Name = "koonpeatch",
+	Callback = function()
+    loadstring(game:HttpGet((“https://raw.githubusercontent.com/koonpeatch/PeatEX/master/BKHAX/BloxFruits”),true))()
+      		print("button pressed")
+  	end    
+})
+
+MainTab:AddButton({
+	Name = "Cokka Hub",
+	Callback = function()
+    loadstring(game:HttpGet(“https://codeberg.org/CokkaHub/Loadstring/raw/branch/main/CokkaHub.lua”))()
+      		print("button pressed")
+  	end    
+})
+
+MainTab:AddButton({
+	Name = "UraniumKak Hub",
+	Callback = function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Augustzyzx/UraniumMobile/main/UraniumKak.lua"))()
+      		print("button pressed")
+  	end    
+})
+
+local MainTab = Window:MakeTab({
+	Name = "Doors Floor 2/1",
+	Icon = "nil",
+	PremiumOnly = false
+})
+
+MainTab:AddButton({
+	Name = "MsPaint Hub",
+	Callback = function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/notpoiu/mspaint/main/main.lua"))()
+      		print("button pressed")
+  	end    
+})
+
+MainTab:AddButton({
+	Name = "FFJ1 Hub",
+	Callback = function()
+    loadstring(game:HttpGet("https://pastebin.com/raw/sNvekgeL"))()
+      		print("button pressed")
+  	end    
+})
+
+MainTab:AddButton({
+	Name = "Python Hub",
+	Callback = function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Yumiara/Python/main/Main.lua"))();
+      		print("button pressed")
+  	end    
+})
+
+MainTab:AddButton({
+	Name = "Ahmad99 Hub",
+	Callback = function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/AhmadV99/Script-Games/main/Doors.lua"))()
+      		print("button pressed")
+  	end    
+})
+
+MainTab:AddButton({
+	Name = "Native hub",
+	Callback = function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/NativeonTeam/NativeDoorsEarlyRelease/main/NativeDoorsEarlyAccess.txt"))()
+      		print("button pressed")
+  	end    
+})
