@@ -1,0 +1,340 @@
+local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
+
+local Window = OrionLib:MakeWindow({Name = "Steal A Character", HidePremium = false, SaveConfig = true, IntroText = FrenzyHub, ConfigFolder = "StealCharacterConfig"})
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local HRP = Character:WaitForChild("HumanoidRootPart")
+
+local noclip = false
+local speedBoost = false
+local autoCollect = false
+local autoLockDoors = false
+local autoSteal = false
+local antiFling = false
+local autoReturn = false
+local autoDodgeBats = false
+local mobileNoclip = false
+
+local originalPos = HRP.Position
+
+-- Refresh refs on respawn
+local function refreshCharRefs()
+    Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    Humanoid = Character:WaitForChild("Humanoid")
+    HRP = Character:WaitForChild("HumanoidRootPart")
+    originalPos = HRP.Position
+end
+LocalPlayer.CharacterAdded:Connect(refreshCharRefs)
+
+-- Remove invisible parts once on load
+local function removeInvisibleParts()
+    for _, v in pairs(Workspace:GetDescendants()) do
+        if v:IsA("BasePart") and v.Transparency == 1 and v.CanCollide and not v:IsDescendantOf(Character) then
+            pcall(function() v:Destroy() end)
+        end
+    end
+end
+removeInvisibleParts()
+
+-- Noclip for PC & Mobile (set CanCollide false)
+RunService.Stepped:Connect(function()
+    if (noclip or mobileNoclip) and Character then
+        for _, part in pairs(Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- Anti fling / ragdoll prevention
+task.spawn(function()
+    while true do
+        if antiFling and Character and Humanoid and HRP then
+            for _, part in ipairs(Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.AssemblyLinearVelocity = Vector3.zero
+                    part.AssemblyAngularVelocity = Vector3.zero
+                    part.Velocity = Vector3.zero
+                    part.RotVelocity = Vector3.zero
+                    part.Anchored = false
+                end
+            end
+            if Humanoid:GetState() == Enum.HumanoidStateType.Ragdoll
+            or Humanoid:GetState() == Enum.HumanoidStateType.FallingDown
+            or Humanoid:GetState() == Enum.HumanoidStateType.PlatformStanding then
+                Humanoid:ChangeState(Enum.HumanoidStateType.Running)
+            end
+        end
+        task.wait(0.1)
+    end
+end)
+
+-- Speed boost handler
+RunService.Heartbeat:Connect(function()
+    if speedBoost and Humanoid then
+        Humanoid.WalkSpeed = 50
+    else
+        if Humanoid then
+            Humanoid.WalkSpeed = 16
+        end
+    end
+end)
+
+-- Auto collect money
+task.spawn(function()
+    while true do
+        if autoCollect then
+            for _, v in pairs(Workspace:GetDescendants()) do
+                if v:IsA("ClickDetector") and v.Parent:IsA("BasePart") and v.Parent.Name:lower():find("collect") then
+                    pcall(function() fireclickdetector(v) end)
+                end
+            end
+        end
+        task.wait(1.5)
+    end
+end)
+
+-- Auto lock doors if enemy near
+task.spawn(function()
+    while true do
+        if autoLockDoors then
+            for _, v in pairs(Workspace:GetDescendants()) do
+                if v:IsA("ClickDetector") and v.Parent:IsA("BasePart") and v.Parent.Name:lower():find("lock") then
+                    for _, player in pairs(Players:GetPlayers()) do
+                        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                            if (player.Character.HumanoidRootPart.Position - HRP.Position).Magnitude < 40 then
+                                pcall(function() fireclickdetector(v) end)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        task.wait(1)
+    end
+end)
+
+-- Auto steal characters (bring near)
+task.spawn(function()
+    while true do
+        if autoSteal then
+            for _, v in pairs(Workspace:GetChildren()) do
+                if v:IsA("Model") and v ~= Character and v:FindFirstChild("HumanoidRootPart") then
+                    local d = (HRP.Position - v.HumanoidRootPart.Position).Magnitude
+                    if d < 60 then
+                        local root = v:FindFirstChild("HumanoidRootPart")
+                        if root then
+                            root.CFrame = HRP.CFrame * CFrame.new(math.random(-5, 5), 0, math.random(-5, 5))
+                        end
+                    end
+                end
+            end
+        end
+        task.wait(2)
+    end
+end)
+
+-- Auto return to origin if flung
+task.spawn(function()
+    while true do
+        if autoReturn and HRP and (HRP.Position - originalPos).Magnitude > 250 then
+            HRP.CFrame = CFrame.new(originalPos + Vector3.new(0, 5, 0))
+        end
+        task.wait(2)
+    end
+end)
+
+-- Auto dodge bat attacks (teleport away)
+task.spawn(function()
+    while true do
+        if autoDodgeBats and HRP then
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character then
+                    local tool = player.Character:FindFirstChildOfClass("Tool")
+                    if tool and tool:FindFirstChild("Handle") and (tool.Handle.Position - HRP.Position).Magnitude < 10 then
+                        HRP.CFrame = HRP.CFrame * CFrame.new(math.random(-20, 20), 0, math.random(-20, 20))
+                        break
+                    end
+                end
+            end
+        end
+        task.wait(0.3)
+    end
+end)
+
+-- Teleport nearest character function
+local function teleportNearestCharacter()
+    local closest, dist = nil, math.huge
+    for _, v in pairs(Workspace:GetChildren()) do
+        if v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") and not v:IsDescendantOf(Character) then
+            local d = (HRP.Position - v.HumanoidRootPart.Position).Magnitude
+            if d < dist and d > 10 then
+                closest = v
+                dist = d
+            end
+        end
+    end
+    if closest then
+        HRP.CFrame = closest.HumanoidRootPart.CFrame + Vector3.new(0, 5, 0)
+        OrionLib:MakeNotification({
+            Name = "Teleport",
+            Content = "Teleported to nearest character",
+            Duration = 3,
+            Image = "rbxassetid://4483345998"
+        })
+    else
+        OrionLib:MakeNotification({
+            Name = "Teleport",
+            Content = "No character found nearby",
+            Duration = 3,
+            Image = "rbxassetid://4483345998"
+        })
+    end
+end
+
+-- Keybinds for PC
+UIS.InputBegan:Connect(function(input, gpe)
+    if not gpe then
+        if input.KeyCode == Enum.KeyCode.N then
+            noclip = not noclip
+            OrionLib:MakeNotification({
+                Name = "Noclip",
+                Content = noclip and "Enabled" or "Disabled",
+                Duration = 3,
+                Image = "rbxassetid://4483345998"
+            })
+        elseif input.KeyCode == Enum.KeyCode.T then
+            teleportNearestCharacter()
+        end
+    end
+end)
+
+-- Mobile touch input toggle for noclip
+UIS.TouchTap:Connect(function(tapCount, input, gameProcessed)
+    if not gameProcessed and tapCount == 3 then -- triple tap for mobile noclip toggle
+        mobileNoclip = not mobileNoclip
+        OrionLib:MakeNotification({
+            Name = "Mobile Noclip",
+            Content = mobileNoclip and "Enabled" or "Disabled",
+            Duration = 3,
+            Image = "rbxassetid://4483345998"
+        })
+    end
+end)
+
+-- === UI Tabs and toggles ===
+
+local TabMain = Window:MakeTab({
+    Name = "Main Features",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+local TabAutomation = Window:MakeTab({
+    Name = "Automation",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+local TabMisc = Window:MakeTab({
+    Name = "Misc",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+local TabCredits = Window:MakeTab({
+    Name = "Credits",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+-- Main Features toggles
+TabMain:AddToggle({
+    Name = "Noclip (PC)",
+    Default = false,
+    Callback = function(Value)
+        noclip = Value
+    end
+})
+
+TabMain:AddToggle({
+    Name = "Speed Boost",
+    Default = false,
+    Callback = function(Value)
+        speedBoost = Value
+    end
+})
+
+TabMain:AddToggle({
+    Name = "Anti Fling / Anti Ragdoll",
+    Default = false,
+    Callback = function(Value)
+        antiFling = Value
+    end
+})
+
+TabMain:AddToggle({
+    Name = "Auto Return to Spawn (If Flung)",
+    Default = false,
+    Callback = function(Value)
+        autoReturn = Value
+    end
+})
+
+-- Automation toggles
+TabAutomation:AddToggle({
+    Name = "Auto Collect",
+    Default = false,
+    Callback = function(Value)
+        autoCollect = Value
+    end
+})
+
+TabAutomation:AddToggle({
+    Name = "Auto Lock Doors",
+    Default = false,
+    Callback = function(Value)
+        autoLockDoors = Value
+    end
+})
+
+TabAutomation:AddToggle({
+    Name = "Auto Steal Characters",
+    Default = false,
+    Callback = function(Value)
+        autoSteal = Value
+    end
+})
+
+TabAutomation:AddToggle({
+    Name = "Auto Dodge Bat Attacks",
+    Default = false,
+    Callback = function(Value)
+        autoDodgeBats = Value
+    end
+})
+
+-- Misc toggles
+TabMisc:AddButton({
+    Name = "Teleport To Nearest Character",
+    Callback = teleportNearestCharacter
+})
+
+-- Credits text
+TabCredits:AddLabel("Script by: Ftenzy)
+TabCredits:AddLabel("UI Library by: Shlexware (Orion)")
+TabCredits:AddLabel("Special thanks to: Xdreake)
+TabCredits:AddLabel("Mobile Noclip: Triple tap anywhere")
+TabCredits:AddLabel("PC Noclip toggle: Press 'N'")
+TabCredits:AddLabel("Teleport: Press 'T'")
+
+OrionLib:Init()
+q
