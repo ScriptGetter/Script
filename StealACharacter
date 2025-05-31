@@ -1,6 +1,6 @@
-local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
+local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source'))()
 
-local Window = OrionLib:MakeWindow({Name = "Steal A Character", HidePremium = false, SaveConfig = true, IntroText = FrenzyHub, ConfigFolder = "StealCharacterConfig"})
+local Window = OrionLib:MakeWindow({Name = "Steal A Character", HidePremium = false, SaveConfig = true, ConfigFolder = "StealCharacterConfig"})
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
