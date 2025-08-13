@@ -1,0 +1,170 @@
+-- Rayfield UI
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "Anime Rangers X | Redeem Codes",
+   LoadingTitle = "Anime Rangers X",
+   LoadingSubtitle = "Redeem Codes Easily",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "AnimeRangersX",
+      FileName = "Config"
+   },
+   Discord = { Enabled = false },
+   KeySystem = false
+})
+
+-- Script Info
+local scriptVersion = "1.0"
+local scriptChanges = "Initial release: Redeem Codes + QQL + Info Tab"
+
+-- List of codes
+local codes = {
+    "UpgradeInFieldFix!",
+    "Shutdown2!",
+    "DBZUpdate!",
+    "NewPortals?!",
+    "GTBossEvent!!",
+    "SorryForDelayz!",
+    "LBreset!",
+    "MinorChanges!",
+    "Dungeons!",
+    "SAOUpd!",
+    "RiftMode!",
+    "EzSoulFrags",
+    "CraftingFix!",
+    "SmartRejoin",
+    "S3Battlepass!",
+    "StatBoosters!",
+    "GraveyardRaid!",
+    "ChainsawUpd!",
+    "SneakCode!",
+    "SuperSuperSorry!",
+    "3xALLMODES!!",
+    "YOUTUBEBACK!!",
+    "BRANDONTHEBEST!",
+    "TYBW2!",
+    "QOL2!",
+    "ARXBLEACH!",
+    "Srry4Shutdown",
+    "SmallFixs",
+    "!FixBossRushShop",
+    "!TYBW",
+    "!MattLovesARX2",
+    "!RaitoLovesARX",
+    "!BrandonTheBest",
+    "Sorry4AutoTraitRoll",
+    "Sorry4EvoUnits",
+    "SorryDelay!!!",
+    "SummerEvent!",
+    "2xWeekEnd!",
+    "Sorry4Quest",
+    "SorryRaids",
+    "BOSSTAKEOVER",
+    "RAIDS",
+    "BizzareUpdate2!",
+    "Sorry4Delays",
+    "JoJo Part 1",
+    "NewLobby",
+    "Instant Trait",
+    "HBDTanny",
+    "PortalsFix",
+    "UPDATE 1.5",
+    "THANKYOU4PATIENCE"
+}
+
+-- Queue list to track redeemed codes
+local redeemedQueue = {}
+
+-- Main Tab for redeeming codes
+local Tab = Window:CreateTab("Main", 4483362458)
+
+local function redeemCode(code)
+    if redeemedQueue[code] then
+        print("Already redeemed: "..code)
+        return
+    end
+
+    local args = {code}
+    local success, err = pcall(function()
+        game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("Server"):WaitForChild("Lobby"):WaitForChild("Code"):FireServer(unpack(args))
+    end)
+    if success then
+        print("Redeemed code: "..code)
+        redeemedQueue[code] = true
+    else
+        warn("Failed to redeem code: "..code.." | Error: "..err)
+    end
+end
+
+-- Redeem all codes button
+Tab:CreateButton({
+    Name = "Redeem All Codes",
+    Callback = function()
+        for _, code in pairs(codes) do
+            redeemCode(code)
+            wait(0.5)
+        end
+    end
+})
+
+-- Drop-down to redeem single code
+Tab:CreateDropdown({
+    Name = "Redeem Single Code",
+    Options = codes,
+    Callback = function(selected)
+        redeemCode(selected)
+    end
+})
+
+-- Queue List Display
+local queueLabel = Tab:CreateLabel({
+    Name = "Redeemed Codes Queue:",
+    Value = "None"
+})
+
+-- Update Queue Label
+local function updateQueueLabel()
+    local label = ""
+    for code,_ in pairs(redeemedQueue) do
+        label = label..code..", "
+    end
+    label = label:sub(1, -3) -- remove last comma
+    if label == "" then label = "None" end
+    queueLabel:SetValue(label)
+end
+
+spawn(function()
+    while true do
+        updateQueueLabel()
+        wait(2)
+    end
+end)
+
+-- Information Tab
+local InfoTab = Window:CreateTab("Information", 4483362458)
+
+-- Player Info
+local player = game.Players.LocalPlayer
+
+-- Time played in seconds
+local timePlayed = 0
+if player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("TimePlayed") then
+    timePlayed = player.leaderstats.TimePlayed.Value
+end
+
+InfoTab:CreateLabel({Name = "Player Name:", Value = player.Name})
+InfoTab:CreateLabel({Name = "Script Version:", Value = scriptVersion})
+InfoTab:CreateLabel({Name = "Script Changes:", Value = scriptChanges})
+InfoTab:CreateLabel({Name = "Time Played (s):", Value = tostring(timePlayed)})
+
+-- Optional: Update time played in real-time
+spawn(function()
+    while true do
+        if player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("TimePlayed") then
+            timePlayed = player.leaderstats.TimePlayed.Value
+            InfoTab:CreateLabel({Name = "Time Played (s):", Value = tostring(timePlayed)})
+        end
+        wait(5)
+    end
+end)
