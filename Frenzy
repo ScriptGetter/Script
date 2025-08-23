@@ -1,5 +1,3 @@
---// Frenzy Hub — ALL-IN-ONE (Universal Harmless Exploits)
--- Paste into your executor. Uses WindUI loader.
 local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
 local Window = WindUI:CreateWindow({
@@ -803,14 +801,20 @@ Camera:Button({ Title = "Top-Down Mode", Callback = function()
     end
 end })
 
-Camera:Button({ Title = "Hide Camera UI (local)", Callback = function()
-    pcall(function()
-        -- Hide UI elements that are camera related (this is local and may do nothing depending on the game)
-        if CoreGui:FindFirstChild("RobloxGui") then
-            CoreGui.RobloxGui:FindFirstChild("GameChat") and (CoreGui.RobloxGui.GameChat.Enabled = false)
-        end
-    end)
-end })
+Camera:Button({
+    Title = "Hide Camera UI (local)",
+    Callback = function()
+        pcall(function()
+            local robloxGui = CoreGui:FindFirstChild("RobloxGui")
+            if robloxGui then
+                local gameChat = robloxGui:FindFirstChild("GameChat")
+                if gameChat then
+                    gameChat.Enabled = false
+                end
+            end
+        end)
+    end
+})
 
 Camera:Button({ Title = "Reset Camera", Callback = function()
     pcall(function() workspace.CurrentCamera.FieldOfView = 70 workspace.CurrentCamera.CameraType = Enum.CameraType.Custom end)
