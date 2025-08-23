@@ -1,0 +1,995 @@
+--// Frenzy Hub — ALL-IN-ONE (Universal Harmless Exploits)
+-- Paste into your executor. Uses WindUI loader.
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "Frenzy Hub — Universal (All-in-One)",
+    Icon = "rocket",
+    Author = "by Frenzy",
+    Folder = "FrenzyHub",
+    Size = UDim2.fromOffset(720, 540),
+    Transparent = true,
+    Theme = "Dark",
+    Resizable = true,
+})
+
+-- Tabs
+local Main      = Window:Tab({ Title = "Main", Icon = "home" })
+local Player    = Window:Tab({ Title = "Player", Icon = "user" })
+local Visuals   = Window:Tab({ Title = "Visuals", Icon = "eye" })
+local Utility   = Window:Tab({ Title = "Utility", Icon = "tool" })
+local Fun       = Window:Tab({ Title = "Fun", Icon = "star" })
+local Camera    = Window:Tab({ Title = "Camera", Icon = "camera" })
+local Movement  = Window:Tab({ Title = "Movement+", Icon = "zap" })
+local Misc      = Window:Tab({ Title = "Misc", Icon = "layers" })
+
+-- Services
+local Players    = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInput  = game:GetService("UserInputService")
+local Teleport   = game:GetService("TeleportService")
+local HttpService= game:GetService("HttpService")
+local Lighting   = game:GetService("Lighting")
+local CoreGui    = game:GetService("CoreGui")
+local RepStorage = game:GetService("ReplicatedStorage")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- Global state / connection holders (to allow safe disconnect)
+_G.FrenzyHub = _G.FrenzyHub or {}
+local G = _G.FrenzyHub
+
+-- Utility helpers
+local function safeCharacter()
+    local ok, char = pcall(function() return LocalPlayer.Character end)
+    if ok and char then return char end
+    return nil
+end
+
+local function safeHumanoid()
+    local char = safeCharacter()
+    if char then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        return hum
+    end
+    return nil
+end
+
+local function disconnect(name)
+    if G[name] and type(G[name].Disconnect) == "function" then
+        pcall(function() G[name]:Disconnect() end)
+        G[name] = nil
+    elseif G[name] and typeof(G[name]) == "RBXScriptConnection" then
+        pcall(function() G[name]:Disconnect() end)
+        G[name] = nil
+    else
+        G[name] = nil
+    end
+end
+
+local function cleanupDrawingTable(tbl)
+    if not tbl then return end
+    for _,v in pairs(tbl) do
+        pcall(function() if v and v.Remove then v:Remove() end end)
+    end
+end
+
+-- Ensure removal on Window destroy
+local function CleanupAll()
+    -- Disconnect Stored Connections
+    for k,_ in pairs(G) do
+        pcall(function() if G[k] and typeof(G[k])=="RBXScriptConnection" then G[k]:Disconnect() end end)
+        G[k] = nil
+    end
+    -- Remove highlights / drawings / GUI created
+    for _,p in pairs(Players:GetPlayers()) do
+        if p.Character and p.Character:FindFirstChild("Frenzy_ESP_Highlight") then
+            p.Character.Frenzy_ESP_Highlight:Destroy()
+        end
+    end
+    cleanupDrawingTable(G._Drawings)
+    if G._FPSLabel and G._FPSLabel.Parent then pcall(function() G._FPSLabel:Destroy() end) end
+    if G._PingLabel and G._PingLabel.Parent then pcall(function() G._PingLabel:Destroy() end) end
+end
+
+Window.Destroyed:Connect(function()
+    CleanupAll()
+end)
+
+-- =========================
+-- MAIN TAB
+-- =========================
+Main:Button({ Title = "Rejoin", Callback = function()
+    pcall(function() Teleport:Teleport(game.PlaceId, LocalPlayer) end)
+end })
+
+Main:Button({ Title = "Server Hop", Callback = function()
+    spawn(function()
+        local succ, res = pcall(function()
+            local url = "https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Desc&limit=100"
+            return HttpService:JSONDecode(game:HttpGet(url))
+        end)
+        if succ and res and res.data then
+            for _,v in pairs(res.data) do
+                if v.playing < v.maxPlayers then
+                    pcall(function() Teleport:TeleportToPlaceInstance(game.PlaceId, v.id) end)
+                    break
+                end
+            end
+        end
+    end)
+end })
+
+Main:Toggle({ Title = "Anti-AFK", Default = true, Callback = function(s)
+    if s then
+        if G.AntiAFKConn then return end
+        G.AntiAFKConn = LocalPlayer.Idled:Connect(function()
+            local vu = game:GetService("VirtualUser")
+            vu:Button2Down(Vector2.new(), workspace.CurrentCamera.CFrame)
+            task.wait(1)
+            vu:Button2Up(Vector2.new(), workspace.CurrentCamera.CFrame)
+        end)
+    else
+        disconnect("AntiAFKConn")
+    end
+end })
+
+Main:Button({ Title = "Reset Character", Callback = function()
+    pcall(function() LocalPlayer.Character:BreakJoints() end)
+end })
+
+Main:Button({ Title = "Respawn to SpawnLocation", Callback = function()
+    local spawn = workspace:FindFirstChild("SpawnLocation") or workspace:FindFirstChildWhichIsA("SpawnLocation")
+    if spawn and LocalPlayer.Character and spawn.Position then
+        pcall(function() LocalPlayer.Character:MoveTo(spawn.Position) end)
+    end
+end })
+
+Main:Button({ Title = "Teleport to Random Player", Callback = function()
+    local plrs = Players:GetPlayers()
+    local choices = {}
+    for _,p in pairs(plrs) do if p~=LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then table.insert(choices,p) end end
+    if #choices>=1 then
+        local t = choices[math.random(1,#choices)]
+        pcall(function() LocalPlayer.Character:MoveTo(t.Character.HumanoidRootPart.Position + Vector3.new(0,5,0)) end)
+    end
+end })
+
+Main:Input({ Title = "Custom Chat", Placeholder = "Say something...", Callback = function(msg)
+    pcall(function()
+        if RepStorage:FindFirstChild("DefaultChatSystemChatEvents") then
+            local evt = RepStorage:FindFirstChild("DefaultChatSystemChatEvents")
+            if evt:FindFirstChild("SayMessageRequest") then
+                evt.SayMessageRequest:FireServer(tostring(msg),"All")
+                return
+            end
+        end
+        if game.ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents") and game.ReplicatedStorage.DefaultChatSystemChatEvents:FindFirstChild("SayMessageRequest") then
+            game.ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(tostring(msg),"All")
+        end
+    end)
+end })
+
+Main:Button({ Title = "Copy Place ID", Callback = function() pcall(setclipboard, tostring(game.PlaceId)) end })
+Main:Button({ Title = "Copy JobId", Callback = function() pcall(setclipboard, tostring(game.JobId)) end })
+Main:Button({ Title = "Destroy Hub", Callback = function() Window:Destroy() CleanupAll() end })
+
+-- =========================
+-- PLAYER TAB (10+)
+-- =========================
+Player:Slider({ Title = "WalkSpeed", Value={Min=16,Max=300,Default=16}, Step=1, Callback = function(v)
+    local hum = safeHumanoid()
+    if hum then pcall(function() hum.WalkSpeed = v end) end
+end })
+
+Player:Slider({ Title = "JumpPower", Value={Min=50,Max=400,Default=50}, Step=1, Callback = function(v)
+    local hum = safeHumanoid()
+    if hum then pcall(function() hum.JumpPower = v end) end
+end })
+
+Player:Toggle({ Title = "Infinite Jump", Default = false, Callback = function(s)
+    if s then
+        if G.InfJumpConn then return end
+        G._InfJumpEnabled = true
+        G.InfJumpConn = UserInput.JumpRequest:Connect(function()
+            if G._InfJumpEnabled then
+                local hum = safeHumanoid()
+                if hum then pcall(function() hum:ChangeState(Enum.HumanoidStateType.Jumping) end) end
+            end
+        end)
+    else
+        G._InfJumpEnabled = false
+        disconnect("InfJumpConn")
+    end
+end })
+
+Player:Toggle({ Title = "Noclip", Default = false, Callback = function(s)
+    if s then
+        if G.NoclipConn then return end
+        G.NoclipEnabled = true
+        G.NoclipConn = RunService.Stepped:Connect(function()
+            if not G.NoclipEnabled then return end
+            local char = safeCharacter()
+            if not char then return end
+            for _,part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end)
+    else
+        G.NoclipEnabled = false
+        disconnect("NoclipConn")
+    end
+end })
+
+Player:Toggle({ Title = "Fly (WASD)", Default = false, Callback = function(s)
+    if s then
+        if G.FlyConn then return end
+        G.FlyEnabled = true
+        local hrp = (safeCharacter() and safeCharacter():FindFirstChild("HumanoidRootPart"))
+        if not hrp then return end
+        G.FlyConn = RunService.RenderStepped:Connect(function()
+            if not G.FlyEnabled then return end
+            local cam = workspace.CurrentCamera
+            local dir = Vector3.new()
+            if UserInput:IsKeyDown(Enum.KeyCode.W) then dir = dir + cam.CFrame.LookVector end
+            if UserInput:IsKeyDown(Enum.KeyCode.S) then dir = dir - cam.CFrame.LookVector end
+            if UserInput:IsKeyDown(Enum.KeyCode.A) then dir = dir - cam.CFrame.RightVector end
+            if UserInput:IsKeyDown(Enum.KeyCode.D) then dir = dir + cam.CFrame.RightVector end
+            if dir.Magnitude > 0 then
+                hrp.Velocity = dir.Unit * 70
+            else
+                hrp.Velocity = Vector3.new(0,0,0)
+            end
+        end)
+    else
+        G.FlyEnabled = false
+        disconnect("FlyConn")
+    end
+end })
+
+Player:Button({ Title = "Sit", Callback = function() local hum = safeHumanoid(); if hum then pcall(function() hum.Sit = true end) end end })
+Player:Button({ Title = "God Mode (Local)", Callback = function()
+    local hum = safeHumanoid()
+    if hum then pcall(function() hum.MaxHealth = math.huge hum.Health = hum.MaxHealth end) end
+end })
+Player:Button({ Title = "No Fall Damage (Local)", Callback = function()
+    local hum = safeHumanoid()
+    if hum then
+        if G.NoFallConn then G.NoFallConn:Disconnect() G.NoFallConn=nil end
+        G.NoFallConn = hum.StateChanged:Connect(function(old,new)
+            if new == Enum.HumanoidStateType.Freefall then
+                pcall(function() hum:ChangeState(Enum.HumanoidStateType.Seated) end)
+            end
+        end)
+    end
+end })
+Player:Button({ Title = "Super Punch (Local)", Callback = function()
+    local char = safeCharacter()
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+        bv.Velocity = (workspace.CurrentCamera.CFrame.LookVector)*120
+        bv.Parent = char.HumanoidRootPart
+        game:GetService("Debris"):AddItem(bv,0.25)
+    end
+end })
+Player:Button({ Title = "Heal Self", Callback = function()
+    local hum = safeHumanoid()
+    if hum then pcall(function() hum.Health = hum.MaxHealth end) end
+end })
+Player:Button({ Title = "Force Reset", Callback = function() pcall(function() LocalPlayer:LoadCharacter() end) end })
+
+-- =========================
+-- VISUALS TAB (10+)
+-- =========================
+Visuals:Toggle({ Title = "ESP Highlights (Nearby Only)", Default = false, Callback = function(s)
+    if s then
+        if G.ESPConn then return end
+        G._Drawings = G._Drawings or {}
+        G.ESPConn = RunService.RenderStepped:Connect(function()
+            for _,p in pairs(Players:GetPlayers()) do
+                if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = p.Character.HumanoidRootPart
+                    local dist = (hrp.Position - (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position or hrp.Position)).Magnitude
+                    if dist <= 300 then
+                        if not p.Character:FindFirstChild("Frenzy_ESP_Highlight") then
+                            local hl = Instance.new("Highlight")
+                            hl.Name = "Frenzy_ESP_Highlight"
+                            hl.FillTransparency = 0.6
+                            hl.FillColor = Color3.fromRGB(255, 50, 50)
+                            hl.OutlineColor = Color3.fromRGB(255,255,255)
+                            hl.Parent = p.Character
+                        end
+                    else
+                        if p.Character:FindFirstChild("Frenzy_ESP_Highlight") then
+                            p.Character.Frenzy_ESP_Highlight:Destroy()
+                        end
+                    end
+                end
+            end
+        end)
+    else
+        disconnect("ESPConn")
+        for _,p in pairs(Players:GetPlayers()) do
+            if p.Character and p.Character:FindFirstChild("Frenzy_ESP_Highlight") then
+                p.Character.Frenzy_ESP_Highlight:Destroy()
+            end
+        end
+    end
+end })
+
+Visuals:Toggle({ Title = "Tracers (Draw)", Default = false, Callback = function(s)
+    if s then
+        if G.TracerConn then return end
+        G._Drawings = G._Drawings or {}
+        G.TracerConn = RunService.RenderStepped:Connect(function()
+            cleanupDrawingTable(G._Drawings) G._Drawings = {}
+            local cam = workspace.CurrentCamera
+            for _,p in pairs(Players:GetPlayers()) do
+                if p~=LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                    local pos, onScreen = cam:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
+                    if onScreen then
+                        local line = Drawing.new("Line")
+                        line.From = Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y)
+                        line.To = Vector2.new(pos.X, pos.Y)
+                        line.Thickness = 1
+                        line.Transparency = 1
+                        line.Visible = true
+                        table.insert(G._Drawings, line)
+                    end
+                end
+            end
+        end)
+    else
+        disconnect("TracerConn")
+        cleanupDrawingTable(G._Drawings)
+        G._Drawings = nil
+    end
+end })
+
+Visuals:Button({ Title = "Fullbright (Safe)", Callback = function()
+    pcall(function()
+        Lighting.Brightness = 2
+        Lighting.ClockTime = 14
+        Lighting.FogEnd = 1e6
+        Lighting.GlobalShadows = false
+    end)
+end })
+
+Visuals:Button({ Title = "Night Mode", Callback = function()
+    pcall(function() Lighting.ClockTime = 0 end)
+end })
+
+Visuals:Button({ Title = "Rainbow Lighting (Toggle)", Callback = function()
+    if G.RainbowLighting then
+        G.RainbowLighting = false
+        disconnect("RainbowConn")
+    else
+        G.RainbowLighting = true
+        G.RainbowConn = RunService.Heartbeat:Connect(function()
+            if not G.RainbowLighting then return end
+            Lighting.Ambient = Color3.fromHSV(tick()%5/5,1,1)
+        end)
+    end
+end })
+
+Visuals:Button({ Title = "Remove Fog", Callback = function()
+    pcall(function() Lighting.FogEnd = 1e9 end)
+end })
+
+Visuals:Button({ Title = "Wireframe Mode (Material ForceField)", Callback = function()
+    spawn(function()
+        for _,v in pairs(workspace:GetDescendants()) do
+            if v:IsA("BasePart") then
+                pcall(function() v.Material = Enum.Material.ForceField end)
+            end
+        end
+    end)
+end })
+
+Visuals:Button({ Title = "X-Ray Walls (Semi Transparent)", Callback = function()
+    spawn(function()
+        for _,v in pairs(workspace:GetDescendants()) do
+            if v:IsA("BasePart") and v.Transparency < 0.5 then
+                pcall(function() v.Transparency = 0.5 end)
+            end
+        end
+    end)
+end })
+
+Visuals:Button({ Title = "Outline Yourself", Callback = function()
+    local char = safeCharacter()
+    if char and not char:FindFirstChild("Frenzy_Outline") then
+        local hl = Instance.new("Highlight")
+        hl.Name = "Frenzy_Outline"
+        hl.FillTransparency = 0.8
+        hl.FillColor = Color3.fromRGB(0,255,255)
+        hl.OutlineColor = Color3.new(1,1,1)
+        hl.Parent = char
+    end
+end })
+
+Visuals:Button({ Title = "FPS Counter (Toggle)", Callback = function()
+    if G.FPS then
+        G.FPS = false
+        disconnect("FPSConn")
+        if G._FPSLabel and G._FPSLabel.Parent then pcall(function() G._FPSLabel:Destroy() end) end
+    else
+        G.FPS = true
+        local screen = Instance.new("ScreenGui", CoreGui)
+        screen.Name = "FrenzyFPS"
+        local label = Instance.new("TextLabel", screen)
+        label.Size = UDim2.new(0,120,0,30)
+        label.Position = UDim2.new(0,10,0,10)
+        label.BackgroundTransparency = 1
+        label.TextScaled = false
+        label.TextSize = 14
+        label.TextColor3 = Color3.new(1,1,1)
+        label.ZIndex = 10
+        G._FPSLabel = screen
+
+        local last = tick()
+        G.FPSConn = RunService.RenderStepped:Connect(function()
+            local now = tick()
+            local dt = now - last
+            last = now
+            local fps = math.floor(1/dt + 0.5)
+            pcall(function() label.Text = "FPS: "..tostring(fps) end)
+        end)
+    end
+end })
+
+-- =========================
+-- UTILITY TAB (10+)
+-- =========================
+Utility:Button({ Title = "Teleport Tool (Click to Teleport)", Callback = function()
+    -- Simple teleport tool: click a position to teleport there
+    if G.TeleportToolEnabled then
+        G.TeleportToolEnabled = false
+        disconnect("TeleToolConn")
+    else
+        G.TeleportToolEnabled = true
+        G.TeleToolConn = UserInput.InputBegan:Connect(function(input, gpe)
+            if not G.TeleportToolEnabled then return end
+            if gpe then return end
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                local cam = workspace.CurrentCamera
+                local mouse = Players.LocalPlayer:GetMouse()
+                local pos = mouse.Hit and mouse.Hit.p
+                if pos and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    pcall(function() LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0,5,0)) end)
+                end
+            end
+        end)
+    end
+end })
+
+Utility:Button({ Title = "Anti-Void (Toggle)", Callback = function()
+    if G.AntiVoid then
+        G.AntiVoid = false
+        disconnect("AntiVoidConn")
+    else
+        G.AntiVoid = true
+        G.AntiVoidConn = RunService.Heartbeat:Connect(function()
+            local char = safeCharacter()
+            if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChildOfClass("Humanoid") then
+                if char.HumanoidRootPart.Position.Y < -50 then
+                    pcall(function() char:MoveTo(Vector3.new(0,50,0)) end)
+                end
+            end
+        end)
+    end
+end })
+
+Utility:Slider({ Title = "Gravity Slider", Value={Min=0,Max=196,Default=196}, Step=1, Callback = function(v)
+    pcall(function() workspace.Gravity = v end)
+end })
+
+Utility:Slider({ Title = "Camera FOV Slider", Value={Min=70,Max=120,Default=70}, Step=1, Callback = function(v)
+    pcall(function() workspace.CurrentCamera.FieldOfView = v end)
+end })
+
+Utility:Button({ Title = "Ping Display (Toggle)", Callback = function()
+    if G.Ping then
+        G.Ping = false
+        disconnect("PingConn")
+        if G._PingLabel and G._PingLabel.Parent then pcall(function() G._PingLabel:Destroy() end) end
+    else
+        G.Ping = true
+        local screen = Instance.new("ScreenGui", CoreGui)
+        screen.Name = "FrenzyPing"
+        local label = Instance.new("TextLabel", screen)
+        label.Size = UDim2.new(0,120,0,30)
+        label.Position = UDim2.new(0,10,0,50)
+        label.BackgroundTransparency = 1
+        label.TextSize = 14
+        label.TextColor3 = Color3.new(1,1,1)
+        G._PingLabel = screen
+        G.PingConn = RunService.Heartbeat:Connect(function()
+            local ping = math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue() or 0)
+            pcall(function() label.Text = "Ping: "..tostring(ping).."ms" end)
+        end)
+    end
+end })
+
+Utility:Button({ Title = "Time Freeze (Local Lighting)", Callback = function()
+    if G.TimeFreeze then
+        G.TimeFreeze = false
+        disconnect("TimeConn")
+        pcall(function() Lighting.ClockTime = 14 end)
+    else
+        G.TimeFreeze = true
+        G.TimeConn = RunService.Heartbeat:Connect(function()
+            if G.TimeFreeze then Lighting.ClockTime = 12 end
+        end)
+    end
+end })
+
+Utility:Toggle({ Title = "Toggle CoreGui Visibility", Default = false, Callback = function(s)
+    if s then
+        if G.CoreGuiHider then return end
+        G.CoreGuiHider = true
+        pcall(function() CoreGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false) end)
+    else
+        G.CoreGuiHider = false
+        pcall(function() CoreGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, true) end)
+    end
+end })
+
+Utility:Button({ Title = "Low Graphics (reduce effects)", Callback = function()
+    pcall(function()
+        for _,v in pairs(game:GetService("Lighting"):GetChildren()) do
+            if v:IsA("BlurEffect") or v:IsA("ColorCorrectionEffect") or v:IsA("SunRaysEffect") or v:IsA("BloomEffect") then
+                v.Enabled = false
+            end
+        end
+    end)
+end })
+
+Utility:Button({ Title = "Clear Terrain / Lag Cleaner (local)", Callback = function()
+    -- Attempts small GC acts: remove decals and particle emitters in workspace locally
+    spawn(function()
+        for _,v in pairs(workspace:GetDescendants()) do
+            if v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Trail") or v:IsA("Explosion") then
+                pcall(function() v.Enabled = false end)
+            end
+            if v:IsA("Decal") or v:IsA("Texture") then
+                pcall(function() v.Transparency = 1 end)
+            end
+        end
+    end)
+end })
+
+Utility:Button({ Title = "Respawn To Spawn", Callback = function()
+    pcall(function() LocalPlayer:LoadCharacter() end)
+end })
+
+-- =========================
+-- FUN TAB (10+)
+-- =========================
+Fun:Toggle({ Title = "Spin Character", Default = false, Callback = function(s)
+    if s then
+        if G.SpinConn then return end
+        G.Spin = true
+        G.SpinConn = RunService.Heartbeat:Connect(function()
+            local char = safeCharacter()
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.CFrame = char.HumanoidRootPart.CFrame * CFrame.Angles(0,math.rad(5),0)
+            end
+        end)
+    else
+        G.Spin = false
+        disconnect("SpinConn")
+    end
+end })
+
+Fun:Button({ Title = "Dance Emote", Callback = function()
+    local char = safeCharacter()
+    local hum = safeHumanoid()
+    if hum then
+        pcall(function() hum:LoadAnimation(Instance.new("Animation")) end) -- placeholder safe call (custom works if animation provided)
+    end
+end })
+
+Fun:Button({ Title = "Float Pad (creates pad under you)", Callback = function()
+    local char = safeCharacter()
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local pad = Instance.new("Part", workspace)
+        pad.Name = "Frenzy_FloatPad"
+        pad.Anchored = true
+        pad.Size = Vector3.new(6,1,6)
+        pad.Position = char.HumanoidRootPart.Position - Vector3.new(0,3,0)
+        pad.Transparency = 0.5
+        pad.CanCollide = true
+        game:GetService("Debris"):AddItem(pad,20)
+    end
+end })
+
+Fun:Button({ Title = "Rainbow Character (Toggle)", Callback = function()
+    if G.RainbowChar then
+        G.RainbowChar = false
+        disconnect("RainbowCharConn")
+    else
+        G.RainbowChar = true
+        G.RainbowCharConn = RunService.Heartbeat:Connect(function()
+            if not G.RainbowChar then return end
+            local char = safeCharacter()
+            if char then
+                for _,part in pairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.Color = Color3.fromHSV(tick()%5/5,1,1)
+                    end
+                end
+            end
+        end)
+    end
+end })
+
+Fun:Button({ Title = "Big Head (local)", Callback = function()
+    local char = safeCharacter()
+    if char then
+        local head = char:FindFirstChild("Head")
+        if head and head:IsA("BasePart") then
+            head.Size = head.Size * 1.6
+        end
+    end
+end })
+
+Fun:Button({ Title = "Shrink Torso (local)", Callback = function()
+    local char = safeCharacter()
+    if char then
+        local torso = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
+        if torso and torso:IsA("BasePart") then
+            torso.Size = torso.Size * Vector3.new(1,0.6,1)
+        end
+    end
+end })
+
+Fun:Button({ Title = "Invisible Legs (local)", Callback = function()
+    local char = safeCharacter()
+    if char then
+        for _,v in pairs(char:GetDescendants()) do
+            if v:IsA("BasePart") and (v.Name:lower():find("leg") or v.Name:lower():find("foot")) then
+                v.Transparency = 1
+            end
+        end
+    end
+end })
+
+Fun:Button({ Title = "Fake Lag (local)", Callback = function()
+    local char = safeCharacter()
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local bv = Instance.new("BodyVelocity", char.HumanoidRootPart)
+        bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+        bv.Velocity = Vector3.new(0,0,0)
+        game:GetService("Debris"):AddItem(bv,0.8)
+    end
+end })
+
+Fun:Button({ Title = "Clone Character (local visual clone)", Callback = function()
+    local char = safeCharacter()
+    if char then
+        local clone = char:Clone()
+        clone.Name = "Frenzy_Clone"
+        clone:SetPrimaryPartCFrame(char:GetPrimaryPartCFrame() * CFrame.new(2,0,0))
+        for _,v in pairs(clone:GetDescendants()) do
+            if v:IsA("Humanoid") then v:Destroy() end
+        end
+        clone.Parent = workspace
+        game:GetService("Debris"):AddItem(clone,10)
+    end
+end })
+
+Fun:Button({ Title = "Sit Spam", Callback = function()
+    spawn(function()
+        local hum = safeHumanoid()
+        if hum then
+            for i=1,6 do
+                pcall(function() hum.Sit = true end)
+                task.wait(0.25)
+                pcall(function() hum.Sit = false end)
+                task.wait(0.25)
+            end
+        end
+    end)
+end })
+
+-- =========================
+-- CAMERA TAB (10+)
+-- =========================
+Camera:Slider({ Title = "FOV Slider", Value={Min=60,Max=130,Default=70}, Step=1, Callback = function(v)
+    pcall(function() workspace.CurrentCamera.FieldOfView = v end)
+end })
+
+Camera:Toggle({ Title = "Lock First Person", Default = false, Callback = function(s)
+    if s then
+        if G.LockFPConn then return end
+        G.LockFP = true
+        G.LockFPConn = RunService.RenderStepped:Connect(function()
+            pcall(function()
+                local cam = workspace.CurrentCamera
+                cam.CameraType = Enum.CameraType.Custom
+                if cam.CameraSubject and LocalPlayer.Character and cam.CameraSubject.Parent == LocalPlayer.Character then
+                    cam.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
+                end
+                cam.CameraType = Enum.CameraType.Attach
+            end)
+        end)
+    else
+        G.LockFP = false
+        disconnect("LockFPConn")
+        pcall(function() workspace.CurrentCamera.CameraType = Enum.CameraType.Custom end)
+    end
+end })
+
+Camera:Button({ Title = "Unlock Zoom", Callback = function()
+    pcall(function()
+        -- restores default min/max zoom if game disables it
+        if LocalPlayer and LocalPlayer.CameraMaxZoomDistance then
+            LocalPlayer.CameraMaxZoomDistance = 400
+            LocalPlayer.CameraMinZoomDistance = 0.5
+        end
+    end)
+end })
+
+Camera:Toggle({ Title = "Freecam (Hold Right Alt to move)", Default = false, Callback = function(s)
+    -- Lightweight freecam using camera CFrame control (non-destructive)
+    if s then
+        if G.FreecamConn then return end
+        G.FreecamEnabled = true
+        local cam = workspace.CurrentCamera
+        local lastCF = cam.CFrame
+        G.FreecamConn = RunService.RenderStepped:Connect(function(dt)
+            if not G.FreecamEnabled then return end
+            cam.CameraType = Enum.CameraType.Scriptable
+            local speed = 40
+            local move = Vector3.new()
+            if UserInput:IsKeyDown(Enum.KeyCode.W) then move = move + cam.CFrame.LookVector end
+            if UserInput:IsKeyDown(Enum.KeyCode.S) then move = move - cam.CFrame.LookVector end
+            if UserInput:IsKeyDown(Enum.KeyCode.A) then move = move - cam.CFrame.RightVector end
+            if UserInput:IsKeyDown(Enum.KeyCode.D) then move = move + cam.CFrame.RightVector end
+            cam.CFrame = cam.CFrame + move * dt * speed
+        end)
+    else
+        G.FreecamEnabled = false
+        disconnect("FreecamConn")
+        pcall(function() workspace.CurrentCamera.CameraType = Enum.CameraType.Custom end)
+    end
+end })
+
+Camera:Button({ Title = "Spin Camera", Callback = function()
+    spawn(function()
+        local cam = workspace.CurrentCamera
+        for i=1,120 do
+            pcall(function() cam.CFrame = cam.CFrame * CFrame.Angles(0, math.rad(3), 0) end)
+            task.wait(0.02)
+        end
+    end)
+end })
+
+Camera:Button({ Title = "Camera Shake (small)", Callback = function()
+    spawn(function()
+        local cam = workspace.CurrentCamera
+        for i=1,12 do
+            pcall(function() cam.CFrame = cam.CFrame * CFrame.new(0, math.sin(i)*0.03, 0) end)
+            task.wait(0.03)
+        end
+    end)
+end })
+
+Camera:Button({ Title = "Orbit Character (10s)", Callback = function()
+    local char = safeCharacter()
+    if char and char.PrimaryPart then
+        spawn(function()
+            local cam = workspace.CurrentCamera
+            for i=1,200 do
+                pcall(function()
+                    local ang = math.rad(i*1.8)
+                    local offset = CFrame.new(0,2,8) * CFrame.Angles(0,ang,0)
+                    cam.CFrame = char.PrimaryPart.CFrame * offset
+                end)
+                task.wait(0.05)
+            end
+        end)
+    end
+end })
+
+Camera:Button({ Title = "Top-Down Mode", Callback = function()
+    local char = safeCharacter()
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        pcall(function() workspace.CurrentCamera.CFrame = CFrame.new(char.HumanoidRootPart.Position + Vector3.new(0,80,0), char.HumanoidRootPart.Position) end)
+    end
+end })
+
+Camera:Button({ Title = "Hide Camera UI (local)", Callback = function()
+    pcall(function()
+        -- Hide UI elements that are camera related (this is local and may do nothing depending on the game)
+        if CoreGui:FindFirstChild("RobloxGui") then
+            CoreGui.RobloxGui:FindFirstChild("GameChat") and (CoreGui.RobloxGui.GameChat.Enabled = false)
+        end
+    end)
+end })
+
+Camera:Button({ Title = "Reset Camera", Callback = function()
+    pcall(function() workspace.CurrentCamera.FieldOfView = 70 workspace.CurrentCamera.CameraType = Enum.CameraType.Custom end)
+end })
+
+-- =========================
+-- MOVEMENT+ TAB (10+)
+-- =========================
+Movement:Toggle({ Title = "Speed Boost (Hold Shift - Toggle)", Default = false, Callback = function(s)
+    if s then
+        if G.SpeedBoostConn then return end
+        G.SpeedBoostEnabled = true
+        G.SpeedBoostConn = UserInput.InputBegan:Connect(function(inp, gpe)
+            if gpe then return end
+            if inp.KeyCode == Enum.KeyCode.LeftShift then
+                local hum = safeHumanoid()
+                if hum then pcall(function() hum.WalkSpeed = (hum.WalkSpeed or 16) * 2 end) end
+            end
+        end)
+        G.SpeedBoostEnd = UserInput.InputEnded:Connect(function(inp)
+            if inp.KeyCode == Enum.KeyCode.LeftShift then
+                local hum = safeHumanoid()
+                if hum then pcall(function() hum.WalkSpeed = 16 end) end
+            end
+        end)
+    else
+        G.SpeedBoostEnabled = false
+        disconnect("SpeedBoostConn")
+        disconnect("SpeedBoostEnd")
+    end
+end })
+
+Movement:Button({ Title = "Dash Forward", Callback = function()
+    local char = safeCharacter()
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local dir = workspace.CurrentCamera.CFrame.LookVector
+        local bv = Instance.new("BodyVelocity", char.HumanoidRootPart)
+        bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+        bv.Velocity = dir * 100
+        game:GetService("Debris"):AddItem(bv,0.2)
+    end
+end })
+
+Movement:Toggle({ Title = "Bunny Hop (Toggle)", Default = false, Callback = function(s)
+    if s then
+        if G.BHopConn then return end
+        G.BHop = true
+        G.BHopConn = RunService.Heartbeat:Connect(function()
+            local hum = safeHumanoid()
+            if hum and hum.FloorMaterial ~= Enum.Material.Air then
+                pcall(function() hum:ChangeState(Enum.HumanoidStateType.Jumping) end)
+                task.wait(0.15)
+            end
+        end)
+    else
+        G.BHop = false
+        disconnect("BHopConn")
+    end
+end })
+
+Movement:Button({ Title = "Super Swim (local)", Callback = function()
+    local char = safeCharacter()
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local bv = Instance.new("BodyVelocity", char.HumanoidRootPart)
+        bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+        bv.Velocity = Vector3.new(0,0,50)
+        game:GetService("Debris"):AddItem(bv,1)
+    end
+end })
+
+Movement:Button({ Title = "Wall Climb (local)", Callback = function()
+    -- temporary "climb" by moving up when near a wall
+    local char = safeCharacter()
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        pcall(function() char.HumanoidRootPart.Velocity = Vector3.new(0,60,0) end)
+    end
+end })
+
+Movement:Button({ Title = "Teleport Forward", Callback = function()
+    local char = safeCharacter()
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local pos = char.HumanoidRootPart.Position + workspace.CurrentCamera.CFrame.LookVector * 20
+        pcall(function() char:MoveTo(pos) end)
+    end
+end })
+
+Movement:Toggle({ Title = "Auto Jump", Default = false, Callback = function(s)
+    if s then
+        if G.AutoJumpConn then return end
+        G.AutoJumpEnabled = true
+        G.AutoJumpConn = RunService.Heartbeat:Connect(function()
+            local hum = safeHumanoid()
+            if hum and hum.FloorMaterial ~= Enum.Material.Air then
+                pcall(function() hum:ChangeState(Enum.HumanoidStateType.Jumping) end)
+            end
+        end)
+    else
+        G.AutoJumpEnabled = false
+        disconnect("AutoJumpConn")
+    end
+end })
+
+Movement:Button({ Title = "Skate Mode (glide)", Callback = function()
+    local char = safeCharacter()
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local hrp = char.HumanoidRootPart
+        local bv = Instance.new("BodyVelocity", hrp)
+        bv.MaxForce = Vector3.new(1e4,1e4,1e4)
+        bv.Velocity = workspace.CurrentCamera.CFrame.LookVector * 60
+        game:GetService("Debris"):AddItem(bv,1.2)
+    end
+end })
+
+Movement:Button({ Title = "Jetpack Burst", Callback = function()
+    local char = safeCharacter()
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local bp = Instance.new("BodyVelocity", char.HumanoidRootPart)
+        bp.MaxForce = Vector3.new(1e5,1e5,1e5)
+        bp.Velocity = Vector3.new(0,200,0)
+        game:GetService("Debris"):AddItem(bp,0.4)
+    end
+end })
+
+-- =========================
+-- MISC TAB (10+)
+-- =========================
+Misc:Button({ Title = "Copy Discord Link", Callback = function()
+    pcall(setclipboard, "https://discord.gg/yourserver")
+end })
+
+Misc:Button({ Title = "Copy Username", Callback = function() pcall(setclipboard, LocalPlayer.Name) end })
+Misc:Button({ Title = "Copy DisplayName", Callback = function() pcall(setclipboard, LocalPlayer.DisplayName) end })
+Misc:Button({ Title = "Copy UserId", Callback = function() pcall(setclipboard, tostring(LocalPlayer.UserId)) end })
+Misc:Button({ Title = "Copy Place Link", Callback = function() pcall(setclipboard, "https://www.roblox.com/games/"..tostring(game.PlaceId)) end })
+Misc:Button({ Title = "Copy JobId", Callback = function() pcall(setclipboard, tostring(game.JobId)) end })
+
+Misc:Toggle({ Title = "Toggle GUI Visibility", Default = false, Callback = function(s)
+    if s then
+        Window:Hide()
+    else
+        Window:Show()
+    end
+end })
+
+Misc:Button({ Title = "Kill GUI (Totally remove)", Callback = function()
+    CleanupAll()
+    pcall(function() Window:Destroy() end)
+end })
+
+Misc:Button({ Title = "Fake FPS Unlocker (visual)", Callback = function()
+    -- fake increase fps label only if present
+    if G._FPSLabel and G._FPSLabel:FindFirstChildOfClass("TextLabel") then
+        local lbl = G._FPSLabel:FindFirstChildOfClass("TextLabel")
+        pcall(function() lbl.Text = "FPS: "..tostring(999) end)
+        task.delay(1, function() pcall(function() lbl.Text = "FPS: N/A" end) end)
+    end
+end })
+
+Misc:Button({ Title = "UI Theme Switch (Dark/Light)", Callback = function()
+    if Window and Window.Theme then
+        if Window.Theme == "Dark" then Window:SetTheme("Light") else Window:SetTheme("Dark") end
+    end
+end })
+
+Misc:Button({ Title = "Annoying Notifications (spam small)", Callback = function()
+    spawn(function()
+        for i=1,5 do
+            pcall(function() game.StarterGui:SetCore("SendNotification", {Title="Frenzy", Text="Have fun!", Duration=1}) end)
+            task.wait(0.6)
+        end
+    end)
+end })
+
+-- =========================
+-- Final safety & notes
+-- =========================
+-- Make sure to remove old instances when re-executing
+if CoreGui:FindFirstChild("FrenzyFPS") then pcall(function() CoreGui.FrenzyFPS:Destroy() end) end
+if CoreGui:FindFirstChild("FrenzyPing") then pcall(function() CoreGui.FrenzyPing:Destroy() end) end
+
+-- Friendly reminder on disconnect: Window.Destroyed calls CleanupAll()
+print("[Frenzy Hub] All-in-one loaded. Use responsibly. :)")
