@@ -1,0 +1,625 @@
+--// Frenzy Console - Ultimate Client Console
+-- Drop this LocalScript in StarterGui
+
+--// Services
+local Players = game:GetService("Players")
+local StarterGui = game:GetService("StarterGui")
+local TweenService = game:GetService("TweenService")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TeleportService = game:GetService("TeleportService")
+local Stats = game:GetService("Stats")
+
+local LP = Players.LocalPlayer
+
+--// Config (you can tweak these in-game via commands)
+local Config = {
+	PREFIX = "/",              -- change with: prefix !
+	HOTKEY = Enum.KeyCode.F9,  -- console toggle
+	ThemeNeon = true,
+	MaxHistory = 100,
+	MoveSpeed = 70,            -- fly speed baseline
+	LogFontSize = 16,
+}
+
+--// Utility
+local function safeHumanoid()
+	local char = LP.Character or LP.CharacterAdded:Wait()
+	return char:FindFirstChildOfClass("Humanoid"), char:FindFirstChild("HumanoidRootPart"), char
+end
+
+local function findPlayerByPartial(part)
+	if not part or part == "" then return nil end
+	part = part:lower()
+	for _,p in ipairs(Players:GetPlayers()) do
+		if p.Name:lower():sub(1,#part) == part then
+			return p
+		end
+	end
+	return Players:FindFirstChild(part) -- exact as fallback
+end
+
+local function explodeWords(str)
+	-- respects quotes: pm "Player Name" "hello world"
+	local t,res,buf,inQ = {}, {}, "", false
+	for i=1,#str do
+		local c = str:sub(i,i)
+		if c == '"' then
+			inQ = not inQ
+			if not inQ then table.insert(t, buf) buf = "" end
+		elseif c == " " and not inQ then
+			if buf ~= "" then table.insert(t, buf) buf = "" end
+		else
+			buf ..= c
+		end
+	end
+	if buf ~= "" then table.insert(t, buf) end
+	return t
+end
+
+--// UI ---------------------------------------------------------
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "FrenzyConsole"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.Parent = LP:WaitForChild("PlayerGui")
+
+local Root = Instance.new("Frame")
+Root.AnchorPoint = Vector2.new(0.5,0.5)
+Root.Size = UDim2.fromScale(0.62, 0.62)
+Root.Position = UDim2.fromScale(0.5,0.5)
+Root.BackgroundColor3 = Color3.fromRGB(6, 10, 6)
+Root.BorderSizePixel = 0
+Root.Visible = false
+Root.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner", Root)
+UICorner.CornerRadius = UDim.new(0,16)
+
+local Glow = Instance.new("ImageLabel")
+Glow.BackgroundTransparency = 1
+Glow.Image = "rbxassetid://5028857084" -- soft glow
+Glow.ImageColor3 = Color3.fromRGB(0, 255, 120)
+Glow.ScaleType = Enum.ScaleType.Slice
+Glow.SliceCenter = Rect.new(24,24,276,276)
+Glow.Size = UDim2.fromScale(1,1)
+Glow.Position = UDim2.fromScale(0,0)
+Glow.ZIndex = 0
+Glow.Parent = Root
+Glow.Visible = Config.ThemeNeon
+
+local Top = Instance.new("Frame")
+Top.Size = UDim2.new(1,0,0,36)
+Top.BackgroundColor3 = Color3.fromRGB(10, 20, 10)
+Top.BorderSizePixel = 0
+Top.Parent = Root
+
+local Title = Instance.new("TextLabel")
+Title.Text = "✦ Frenzy Console ✦"
+Title.Font = Enum.Font.Code
+Title.TextSize = 20
+Title.TextColor3 = Color3.fromRGB(0,255,120)
+Title.BackgroundTransparency = 1
+Title.Size = UDim2.fromScale(1,1)
+Title.Parent = Top
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Text = "×"
+CloseBtn.Font = Enum.Font.Code
+CloseBtn.TextSize = 22
+CloseBtn.TextColor3 = Color3.fromRGB(0,255,120)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Size = UDim2.fromOffset(36,36)
+CloseBtn.Position = UDim2.new(1,-36,0,0)
+CloseBtn.Parent = Top
+
+local StatsBar = Instance.new("TextLabel")
+StatsBar.BackgroundTransparency = 1
+StatsBar.Font = Enum.Font.Code
+StatsBar.TextSize = 14
+StatsBar.TextColor3 = Color3.fromRGB(0,255,120)
+StatsBar.Text = "FPS: --  Ping: --"
+StatsBar.Size = UDim2.new(0,220,0,20)
+StatsBar.Position = UDim2.new(1,-230,0,8)
+StatsBar.Parent = Top
+
+local Body = Instance.new("Frame")
+Body.BackgroundTransparency = 1
+Body.Size = UDim2.new(1,-16,1,-76)
+Body.Position = UDim2.new(0,8,0,68)
+Body.Parent = Root
+
+local Left = Instance.new("Frame")
+Left.Size = UDim2.new(0.7, -8, 1, 0)
+Left.BackgroundColor3 = Color3.fromRGB(8,12,8)
+Left.BorderSizePixel = 0
+Left.Parent = Body
+Instance.new("UICorner", Left).CornerRadius = UDim.new(0,12)
+
+local Right = Instance.new("Frame")
+Right.Size = UDim2.new(0.3, 0, 1, 0)
+Right.Position = UDim2.new(0.7,8,0,0)
+Right.BackgroundColor3 = Color3.fromRGB(8,12,8)
+Right.BorderSizePixel = 0
+Right.Parent = Body
+Instance.new("UICorner", Right).CornerRadius = UDim.new(0,12)
+
+local Input = Instance.new("TextBox")
+Input.Size = UDim2.new(1,-16,0,34)
+Input.Position = UDim2.new(0,8,0,-42)
+Input.Parent = Root
+Input.PlaceholderText = "Type a command…  (prefix "..Config.PREFIX..")"
+Input.Font = Enum.Font.Code
+Input.TextSize = 18
+Input.TextColor3 = Color3.fromRGB(0,255,120)
+Input.BackgroundColor3 = Color3.fromRGB(10,18,10)
+Input.BorderSizePixel = 0
+Instance.new("UICorner", Input).CornerRadius = UDim.new(0,10)
+
+local Hint = Instance.new("TextLabel")
+Hint.BackgroundTransparency = 1
+Hint.Font = Enum.Font.Code
+Hint.TextSize = 14
+Hint.TextColor3 = Color3.fromRGB(0,255,120)
+Hint.TextXAlignment = Enum.TextXAlignment.Left
+Hint.Text = ""
+Hint.Size = UDim2.new(1,-16,0,18)
+Hint.Position = UDim2.new(0,8,1,-22)
+Hint.Parent = Root
+
+-- Scrollable log (left)
+local LogScroll = Instance.new("ScrollingFrame")
+LogScroll.Size = UDim2.fromScale(1,1)
+LogScroll.CanvasSize = UDim2.new(0,0,0,0)
+LogScroll.ScrollBarThickness = 6
+LogScroll.BackgroundTransparency = 1
+LogScroll.Parent = Left
+
+local LogLayout = Instance.new("UIListLayout", LogScroll)
+LogLayout.Padding = UDim.new(0,4)
+LogLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Player panel (right)
+local PlayerHeader = Instance.new("TextLabel")
+PlayerHeader.Text = "Players"
+PlayerHeader.Font = Enum.Font.Code
+PlayerHeader.TextSize = 18
+PlayerHeader.TextColor3 = Color3.fromRGB(0,255,120)
+PlayerHeader.BackgroundTransparency = 1
+PlayerHeader.Size = UDim2.new(1,0,0,28)
+PlayerHeader.Parent = Right
+
+local PlayerScroll = Instance.new("ScrollingFrame")
+PlayerScroll.Size = UDim2.new(1,0,1,-28)
+PlayerScroll.Position = UDim2.new(0,0,0,28)
+PlayerScroll.CanvasSize = UDim2.new(0,0,0,0)
+PlayerScroll.ScrollBarThickness = 6
+PlayerScroll.BackgroundTransparency = 1
+PlayerScroll.Parent = Right
+
+local PlayerLayout = Instance.new("UIListLayout", PlayerScroll)
+PlayerLayout.Padding = UDim.new(0,4)
+PlayerLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- draggable top bar
+do
+	local dragging, startPos, startInput
+	Top.InputBegan:Connect(function(inputObj)
+		if inputObj.UserInputType == Enum.UserInputType.MouseButton1 or inputObj.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			startPos = inputObj.Position
+			startInput = inputObj
+		end
+	end)
+	Top.InputEnded:Connect(function(i)
+		if i == startInput then dragging = false end
+	end)
+	UIS.InputChanged:Connect(function(i)
+		if dragging and i == startInput then
+			local delta = i.Position - startPos
+			Root.Position = Root.Position + UDim2.fromOffset(delta.X, delta.Y)
+			startPos = i.Position
+		end
+	end)
+end
+
+-- FPS + Ping updater
+do
+	local frames, last = 0, tick()
+	RunService.RenderStepped:Connect(function()
+		frames += 1
+		local now = tick()
+		if now - last >= 1 then
+			local fps = frames
+			frames, last = 0, now
+			local ping = math.floor((Stats.Network.ServerStatsItem["Data Ping"]:GetValue() or 0))
+			StatsBar.Text = ("FPS: %d  Ping: %dms"):format(fps, ping)
+		end
+	end)
+end
+
+-- log helper
+local function pushLog(text)
+	local line = Instance.new("TextLabel")
+	line.BackgroundTransparency = 1
+	line.Font = Enum.Font.Code
+	line.TextSize = Config.LogFontSize
+	line.TextXAlignment = Enum.TextXAlignment.Left
+	line.TextColor3 = Color3.fromRGB(0,255,120)
+	line.Text = "> " .. text
+	line.Size = UDim2.new(1,-8,0,Config.LogFontSize + 6)
+	line.AutomaticSize = Enum.AutomaticSize.Y
+	line.Parent = LogScroll
+	task.defer(function()
+		LogScroll.CanvasSize = UDim2.new(0,0,0,LogLayout.AbsoluteContentSize.Y + 20)
+		LogScroll.CanvasPosition = Vector2.new(0, math.huge)
+	end)
+end
+
+local function clearLog()
+	for _,c in ipairs(LogScroll:GetChildren()) do
+		if c:IsA("TextLabel") then c:Destroy() end
+	end
+	LogScroll.CanvasSize = UDim2.new()
+	pushLog("Console cleared.")
+end
+
+local function refreshPlayers()
+	for _,c in ipairs(PlayerScroll:GetChildren()) do
+		if c:IsA("TextButton") then c:Destroy() end
+	end
+	for _,p in ipairs(Players:GetPlayers()) do
+		local b = Instance.new("TextButton")
+		b.BackgroundColor3 = Color3.fromRGB(12,18,12)
+		b.AutoButtonColor = false
+		b.BorderSizePixel = 0
+		b.Text = p.Name
+		b.Font = Enum.Font.Code
+		b.TextSize = 16
+		b.TextColor3 = Color3.fromRGB(0,255,120)
+		b.Size = UDim2.new(1,0,0,26)
+		b.Parent = PlayerScroll
+		b.MouseButton1Click:Connect(function()
+			Input.Text = Config.PREFIX .. "tp " .. p.Name
+			Input:CaptureFocus()
+		end)
+	end
+	PlayerScroll.CanvasSize = UDim2.new(0,0,0,PlayerLayout.AbsoluteContentSize.Y + 10)
+end
+Players.PlayerAdded:Connect(refreshPlayers)
+Players.PlayerRemoving:Connect(refreshPlayers)
+refreshPlayers()
+
+-- show/hide tween
+local function showConsole(show)
+	if show then
+		Root.Visible = true
+		Root.BackgroundTransparency = 1
+		TweenService:Create(Root, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
+		Input:CaptureFocus()
+	else
+		TweenService:Create(Root, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {BackgroundTransparency = 1}):Play()
+		task.delay(0.12, function() Root.Visible = false end)
+		Input:ReleaseFocus()
+	end
+end
+CloseBtn.MouseButton1Click:Connect(function() showConsole(false) end)
+
+--// Command System --------------------------------------------
+
+-- state
+local flyConn, noclipConn, jumpConn
+local flags = { Fly=false, Noclip=false, InfiniteJump=false, Spectating=false }
+local history, histIndex = {}, 0
+
+-- core actions
+local function setFly(on)
+	if on and flags.Fly then return pushLog("Fly already enabled.") end
+	if (not on) and (not flags.Fly) then return end
+	flags.Fly = on
+	if on then
+		pushLog("Fly enabled.")
+		local _, hrp = safeHumanoid()
+		flyConn = RunService.RenderStepped:Connect(function()
+			local cam = workspace.CurrentCamera
+			local move = Vector3.new()
+			if UIS:IsKeyDown(Enum.KeyCode.W) then move += cam.CFrame.LookVector end
+			if UIS:IsKeyDown(Enum.KeyCode.S) then move -= cam.CFrame.LookVector end
+			if UIS:IsKeyDown(Enum.KeyCode.A) then move -= cam.CFrame.RightVector end
+			if UIS:IsKeyDown(Enum.KeyCode.D) then move += cam.CFrame.RightVector end
+			if UIS:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
+			if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then move -= Vector3.new(0,1,0) end
+			hrp.CFrame += move * (Config.MoveSpeed/100)
+		end)
+	else
+		if flyConn then flyConn:Disconnect() end
+		pushLog("Fly disabled.")
+	end
+end
+
+local function setNoclip(on)
+	if on and flags.Noclip then return pushLog("Noclip already enabled.") end
+	if (not on) and (not flags.Noclip) then return end
+	flags.Noclip = on
+	if on then
+		pushLog("Noclip enabled.")
+		noclipConn = RunService.Stepped:Connect(function()
+			local _,_,char = safeHumanoid()
+			for _,part in ipairs(char:GetDescendants()) do
+				if part:IsA("BasePart") then part.CanCollide = false end
+			end
+		end)
+	else
+		if noclipConn then noclipConn:Disconnect() end
+		pushLog("Noclip disabled.")
+	end
+end
+
+local function setInfiniteJump(on)
+	if on and flags.InfiniteJump then return pushLog("Infinite Jump already enabled.") end
+	if (not on) and (not flags.InfiniteJump) then return end
+	flags.InfiniteJump = on
+	if on then
+		pushLog("Infinite Jump enabled.")
+		jumpConn = UIS.JumpRequest:Connect(function()
+			local hum = safeHumanoid()
+			if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+		end)
+	else
+		if jumpConn then jumpConn:Disconnect() end
+		pushLog("Infinite Jump disabled.")
+	end
+end
+
+local function tpToPlayer(name)
+	local p = findPlayerByPartial(name)
+	if p and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+		local _,_,char = safeHumanoid()
+		char:MoveTo(p.Character.HumanoidRootPart.Position + Vector3.new(2,0,0))
+		pushLog("Teleported to "..p.Name..".")
+	else
+		pushLog("Player not found: "..tostring(name))
+	end
+end
+
+local function spectate(name)
+	local p = findPlayerByPartial(name)
+	if not p or not p.Character then return pushLog("Cannot spectate: player not found.") end
+	local hum = p.Character:FindFirstChildOfClass("Humanoid")
+	if not hum then return pushLog("Cannot spectate: no humanoid.") end
+	workspace.CurrentCamera.CameraSubject = hum
+	flags.Spectating = true
+	pushLog("Spectating "..p.Name..". Use 'unspectate' to return.")
+end
+local function unspectate()
+	local hum = safeHumanoid()
+	if hum then workspace.CurrentCamera.CameraSubject = hum end
+	flags.Spectating = false
+	pushLog("Stopped spectating.")
+end
+
+local function setWalkSpeed(v)
+	local hum = safeHumanoid()
+	if hum then hum.WalkSpeed = v pushLog("WalkSpeed set to "..v..".") end
+end
+
+local function setJumpPower(v)
+	local hum = safeHumanoid()
+	if hum then hum.UseJumpPower = true hum.JumpPower = v pushLog("JumpPower set to "..v..".") end
+end
+
+local function heal()
+	local hum = safeHumanoid()
+	if hum then hum.Health = hum.MaxHealth pushLog("Healed to full.") end
+end
+
+local function respawn()
+	local hum,_,char = safeHumanoid()
+	if hum and char then
+		char:BreakJoints()
+		pushLog("Respawning...")
+	end
+end
+
+local function rejoin()
+	pushLog("Rejoining...")
+	TeleportService:Teleport(game.PlaceId, LP)
+end
+
+local function sithead()
+	local _, hrp = safeHumanoid()
+	if hrp then
+		hrp.CFrame = workspace.CurrentCamera.CFrame
+		pushLog("Sithead executed (to camera).")
+	end
+end
+
+local function toggleNeon()
+	Config.ThemeNeon = not Config.ThemeNeon
+	Glow.Visible = Config.ThemeNeon
+	pushLog("Glow theme "..(Config.ThemeNeon and "enabled" or "disabled")..".")
+end
+
+-- Command registry
+local Commands = {
+	-- movement
+	["fly"] =        {desc="Toggle flight", fn=function() setFly(not flags.Fly) end, aliases={"/fly"}},
+	["noclip"] =     {desc="Toggle noclip", fn=function() setNoclip(not flags.Noclip) end, aliases={"/noclip"}},
+	["infinitejump"]= {desc="Toggle infinite jump", fn=function() setInfiniteJump(not flags.InfiniteJump) end, aliases={"infinite jump"}},
+
+	-- teleport / pm like the screenshot
+	["tp"] =         {desc="Teleport to player: tp <name>", fn=function(a) tpToPlayer(a[1]) end, aliases={"/tp","/tpto","/spreporto","tpto","spreporto"}},
+	["pm"] =         {desc="Fake private message: pm <name> <message>", fn=function(a) local p=a[1] local msg=table.concat(a," ",2) pushLog(("PM to %s: %s"):format(tostring(p or "?"), msg ~= "" and msg or "(empty)")) end, aliases={"/pm"}},
+	["sithead"] =    {desc="Teleport to camera position", fn=function() sithead() end, aliases={"/sithead"}},
+
+	-- utility
+	["players"] =    {desc="List players (also refresh side list)", fn=function() refreshPlayers() pushLog("Players refreshed.") end},
+	["clear"] =      {desc="Clear console output", fn=function() clearLog() end},
+	["help"] =       {desc="Show all commands", fn=function()
+		pushLog("Available Commands:")
+		for name,data in pairs(Commands) do
+			pushLog(("- %s: %s"):format(name, data.desc))
+		end
+	end, aliases={"/help"}},
+
+	-- gameplay tweaks
+	["speed"] =      {desc="Set WalkSpeed: speed <number>", fn=function(a) local v=tonumber(a[1]) if v then setWalkSpeed(v) else pushLog("Usage: speed <number>") end end, aliases={"walkspeed"}},
+	["jumppower"] =  {desc="Set JumpPower: jumppower <number>", fn=function(a) local v=tonumber(a[1]) if v then setJumpPower(v) else pushLog("Usage: jumppower <number>") end end},
+	["heal"] =       {desc="Heal to max", fn=function() heal() end},
+	["respawn"] =    {desc="Force respawn (client)", fn=function() respawn() end},
+	["rejoin"] =     {desc="Rejoin current place", fn=function() rejoin() end},
+
+	-- camera
+	["spectate"] =   {desc="Spectate player: spectate <name>", fn=function(a) if a[1] then spectate(a[1]) else pushLog("Usage: spectate <name>") end end},
+	["unspectate"] = {desc="Stop spectating", fn=function() unspectate() end},
+
+	-- settings
+	["prefix"] =     {desc="Set command prefix: prefix <symbol>", fn=function(a)
+		local new = a[1]
+		if new and #new>0 then
+			Config.PREFIX = new
+			Input.PlaceholderText = "Type a command…  (prefix "..Config.PREFIX..")"
+			pushLog("Prefix set to '"..Config.PREFIX.."'.")
+		else
+			pushLog("Current prefix: '"..Config.PREFIX.."'.")
+		end
+	end},
+	["glow"] =       {desc="Toggle neon glow theme", fn=function() toggleNeon() end},
+}
+
+-- alias map
+local AliasToKey = {}
+for k,data in pairs(Commands) do
+	if data.aliases then
+		for _,a in ipairs(data.aliases) do
+			AliasToKey[a:lower()] = k
+		end
+	end
+end
+
+-- autocompletion helpers
+local function allCommandKeys()
+	local keys = {}
+	for k,_ in pairs(Commands) do table.insert(keys,k) end
+	for a,k in pairs(AliasToKey) do table.insert(keys,a) end
+	table.sort(keys)
+	return keys
+end
+local function bestMatch(prefix)
+	prefix = prefix:lower()
+	local best
+	for _,k in ipairs(allCommandKeys()) do
+		if k:sub(1,#prefix) == prefix then
+			best = k; break
+		end
+	end
+	return best
+end
+
+-- command execution
+local function runCommand(raw)
+	if raw == "" then return end
+	-- history
+	table.insert(history, 1, raw)
+	if #history > Config.MaxHistory then table.remove(history) end
+	histIndex = 0
+
+	-- strip prefix if present
+	local text = raw
+	if text:sub(1, #Config.PREFIX) == Config.PREFIX then
+		text = text:sub(#Config.PREFIX+1)
+	end
+
+	-- split (supports quoted args)
+	local parts = explodeWords(text)
+	local head = (parts[1] or ""):lower()
+	table.remove(parts,1)
+
+	if AliasToKey[head] then head = AliasToKey[head] end
+	local cmd = Commands[head]
+	if not cmd then
+		pushLog("Unknown command: "..raw)
+		return
+	end
+
+	-- run
+	local ok,err = pcall(function() cmd.fn(parts) end)
+	if not ok then pushLog("Error: "..tostring(err)) end
+end
+
+-- input + history + autocomplete
+Input.FocusLost:Connect(function(enter)
+	if enter then
+		local txt = Input.Text
+		Input.Text = ""
+		if txt ~= "" then
+			-- require prefix for safety (still accept plain when typed here)
+			if txt:sub(1,#Config.PREFIX) ~= Config.PREFIX then
+				-- still allow since you typed inside console
+			end
+			runCommand(txt)
+		end
+	end
+end)
+
+Input:GetPropertyChangedSignal("Text"):Connect(function()
+	local t = Input.Text
+	local noPrefix = t:sub(1,#Config.PREFIX) ~= Config.PREFIX and t or t:sub(#Config.PREFIX+1)
+	local first = noPrefix:match("^%S+")
+	if first and first ~= "" then
+		local m = bestMatch(first)
+		Hint.Text = m and ("Suggestion: "..m) or ""
+	else
+		Hint.Text = ""
+	}
+end)
+
+UIS.InputBegan:Connect(function(i, gp)
+	if gp then return end
+
+	-- global hotkeys
+	if i.KeyCode == Config.HOTKEY then
+		showConsole(not Root.Visible)
+		return
+	end
+	if i.KeyCode == Enum.KeyCode.Slash and not Root.Visible then
+		showConsole(true)
+		Input.Text = Config.PREFIX
+		task.defer(function() Input:CaptureFocus() end)
+		return
+	end
+
+	-- when focused
+	if Input:IsFocused() then
+		if i.KeyCode == Enum.KeyCode.Up then
+			histIndex = math.clamp(histIndex + 1, 0, #history)
+			Input.Text = history[histIndex] or Input.Text
+			Input.CursorPosition = #Input.Text + 1
+		elseif i.KeyCode == Enum.KeyCode.Down then
+			histIndex = math.clamp(histIndex - 1, 0, #history)
+			Input.Text = history[histIndex] or ""
+			Input.CursorPosition = #Input.Text + 1
+		elseif i.KeyCode == Enum.KeyCode.Tab then
+			local t = Input.Text
+			local injectedPrefix = ""
+			if t:sub(1,#Config.PREFIX) == Config.PREFIX then
+				injectedPrefix = Config.PREFIX
+				t = t:sub(#Config.PREFIX+1)
+			end
+			local first, rest = t:match("^(%S+)%s*(.*)$")
+			if first then
+				local m = bestMatch(first)
+				if m then
+					Input.Text = injectedPrefix .. m .. (rest ~= "" and (" "..rest) or " ")
+					Input.CursorPosition = #Input.Text + 1
+				end
+			end
+		elseif i.KeyCode == Enum.KeyCode.Escape then
+			showConsole(false)
+		end
+	end
+end)
+
+-- initial log
+pushLog("Console ready. Press "..Config.HOTKEY.Name.." to toggle. Type '"..Config.PREFIX.."help' for commands.")
