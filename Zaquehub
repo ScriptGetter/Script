@@ -1,0 +1,163 @@
+local player = game.Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+-- ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "GAG_AntiCheatSystem"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Red overlay flash
+local overlay = Instance.new("Frame")
+overlay.Size = UDim2.new(1,0,1,0)
+overlay.BackgroundColor3 = Color3.fromRGB(255,0,0)
+overlay.BackgroundTransparency = 0.8
+overlay.Visible = false
+overlay.Parent = screenGui
+
+-- Main Frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 450, 0, 220)
+mainFrame.Position = UDim2.new(0.5, -225, 0.5, -110)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,0,0,50)
+title.Position = UDim2.new(0,0,0,0)
+title.BackgroundTransparency = 1
+title.Text = "Zaque Hub"
+title.TextColor3 = Color3.fromRGB(255, 85, 0)
+title.TextScaled = true
+title.Font = Enum.Font.SourceSansBold
+title.Parent = mainFrame
+
+-- Progress bar background
+local barBg = Instance.new("Frame")
+barBg.Size = UDim2.new(0.9,0,0,30)
+barBg.Position = UDim2.new(0.05,0,0.5,-15)
+barBg.BackgroundColor3 = Color3.fromRGB(50,50,50)
+barBg.BorderSizePixel = 0
+barBg.Parent = mainFrame
+
+-- Progress bar
+local progressBar = Instance.new("Frame")
+progressBar.Size = UDim2.new(0,0,1,0)
+progressBar.Position = UDim2.new(0,0,0,0)
+progressBar.BackgroundColor3 = Color3.fromRGB(255,85,0)
+progressBar.BorderSizePixel = 0
+progressBar.Parent = barBg
+
+-- Warning label
+local warningLabel = Instance.new("TextLabel")
+warningLabel.Size = UDim2.new(1,0,0,50)
+warningLabel.Position = UDim2.new(0,0,0.8,0)
+warningLabel.BackgroundTransparency = 1
+warningLabel.Text = ""
+warningLabel.TextColor3 = Color3.fromRGB(255,255,0)
+warningLabel.TextScaled = true
+warningLabel.Font = Enum.Font.SourceSansBold
+warningLabel.Parent = mainFrame
+
+-- Helper function for progress bar animation
+local function animateBar(duration)
+    local goal = {Size = UDim2.new(1,0,1,0)}
+    local tween = TweenService:Create(progressBar, TweenInfo.new(duration, Enum.EasingStyle.Linear), goal)
+    tween:Play()
+    tween.Completed:Wait()
+end
+
+-- Execution simulation notifications
+local executionSteps = {
+    "Initializing system modules...",
+    "Scanning game environment...",
+    "Monitoring suspicious activity..."
+}
+
+for _, msg in ipairs(executionSteps) do
+    warningLabel.Text = msg
+    wait(2)
+end
+
+-- Warning steps
+local warningSteps = {
+    "Suspicious scripts detected...",
+    "Unauthorized modifications identified!",
+    "Critical Warning ⚠️ Potential Exploit Detected!"
+}
+
+for _, msg in ipairs(warningSteps) do
+    warningLabel.Text = msg
+    -- Flash red/yellow
+    for i=1,3 do
+        warningLabel.TextColor3 = Color3.fromRGB(255,0,0)
+        overlay.Visible = true
+        wait(0.2)
+        warningLabel.TextColor3 = Color3.fromRGB(255,255,0)
+        overlay.Visible = false
+        wait(0.2)
+    end
+    wait(1)
+end
+
+-- Animate progress bar
+animateBar(2)
+
+-- Screen shake effect
+local function screenShake(frame, intensity, duration)
+    local startTime = tick()
+    local originalPos = frame.Position
+    while tick() - startTime < duration do
+        frame.Position = UDim2.new(0.5, -225 + math.random(-intensity,intensity), 0.5, -110 + math.random(-intensity,intensity))
+        RunService.RenderStepped:Wait()
+    end
+    frame.Position = originalPos
+end
+
+screenShake(mainFrame, 10, 1.5)
+
+-- Fake lag: freeze player briefly
+pcall(function()
+    if player.Character and player.Character:FindFirstChild("Humanoid") then
+        player.Character.Humanoid.WalkSpeed = 0
+        player.Character.Humanoid.JumpPower = 0
+    end
+end)
+wait(1.5)
+pcall(function()
+    if player.Character and player.Character:FindFirstChild("Humanoid") then
+        player.Character.Humanoid.WalkSpeed = 16
+        player.Character.Humanoid.JumpPower = 50
+    end
+end)
+
+-- Generate fake timestamp for ban
+local time = os.date("*t")
+local timestamp = string.format("%02d/%02d/%04d %02d:%02d:%02d",
+    time.month, time.day, time.year, time.hour, time.min, time.sec)
+
+-- Fake Ban message
+local banID = math.random(1000000, 9999999)
+local banReason = "Exploiting / Unauthorized Garden Modification"
+local banMessage = [[
+GROW A GARDEN - ACCOUNT ACTION REQUIRED
+
+Player: ]] .. player.Name .. [[
+Ban ID: ]] .. banID .. [[
+Reason: ]] .. banReason .. [[
+Date: ]] .. timestamp .. [[
+
+Your account has been flagged for suspicious activity related to garden modifications. 
+This action is permanent.
+
+If you believe this is a mistake, please contact the Grow A Garden support team:
+https://www.growagarden.com/support
+]]
+
+-- Kick player
+wait(0.5)
+player:Kick(banMessage)
